@@ -1,0 +1,67 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+
+typedef uint8_t BYTE;
+FILE *img = NULL;
+BYTE buffer[512]; //for reading file 512 byte at a time
+char name_buffer[8]; //for storing name
+
+int main(int argc, char *argv[])
+{
+    //The user must enter 1 argument: filename
+    if (argc != 2)
+    {
+        printf("User must enter file name and only: ./recover filename");
+        return 1;
+    }
+
+    int counter = 0; //for closing jpeg
+    int mark = 0; //for separating the first jpeg
+
+    //open card and check it's content
+    FILE *src = fopen(argv[1], "r"); //open sd card
+    if (src == NULL)
+    {
+        return 1;
+    }
+
+    while (fread(&buffer, sizeof(BYTE), 512, src)) //read data from sd card
+    {
+        if (buffer[0] == 0xff && buffer[1] == 0xd8 && buffer[2] == 0xff && (buffer[3] & 0xf0) == 0xe0) //Check for header
+        {
+            if (mark == 0) //the first jpeg condition
+            {
+
+                sprintf(name_buffer, "%03i.jpg", counter);
+                img = fopen(name_buffer, "w");
+                if (img != NULL)
+                {
+                    fwrite(buffer, sizeof(BYTE), 512, img);
+                    counter++;
+                    mark++;
+                }
+                else return 1;
+            }
+            else
+            {
+                fclose(img); //close the first jpeg
+                sprintf(name_buffer, "%03i.jpg", counter);
+                img = fopen(name_buffer, "w");
+                if (img != NULL)
+                {
+                    fwrite(buffer, sizeof(BYTE), 512, img);
+                    counter++;
+                }
+                else return 1;
+            }
+        }
+        else if (img != NULL)
+        {
+            fwrite(buffer, sizeof(BYTE), 512, img);
+        }
+    }
+    fclose(src);
+    fclose(img);
+
+}
